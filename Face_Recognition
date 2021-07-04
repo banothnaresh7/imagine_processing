@@ -1,0 +1,94 @@
+import cv2
+import numpy as np
+import face_recognition
+import os
+import createData
+from datetime import datetime
+
+
+###### create the data ######
+newStudent = (input("Are you a new student:give True or False  "))
+
+if newStudent == "True":
+    folderName = createData.createdata()
+
+#############################
+
+################### to get  path
+if newStudent == "True":
+    path = folderName
+
+else:
+    path= str(input('Enter your name: '))
+
+################
+images = []
+global text
+
+
+listImg = os.listdir(path)
+for name in listImg:
+    curImg = cv2.imread(f'{path}/{name}')
+    images.append(curImg)
+    text = name.rpartition('_')[-1]
+    text = text.rpartition('.')[0]
+
+
+def findEncoding(images):
+    encodeList = []
+    for img in images:
+        encode = face_recognition.face_encodings(img)[0]
+        encodeList.append(encode)
+
+    return encodeList
+
+def markAttendance(name):
+    with open('C:/Users/Naresh/Desktop/text/append.txt','r+') as f:
+        myDataList = f.readlines()
+        nameList = []
+        for line in myDataList:
+            entry = line.split(',')
+            nameList.append(entry[0])
+        if name not in nameList:
+            now = datetime.now()
+            dtString = now.strftime('%H:%M:%S')
+            f.writelines(f'\n{name},{dtString}')
+
+
+
+
+encodeListKnow = findEncoding(images)
+print("Encode Completed  ")
+
+
+cap = cv2.VideoCapture(0)
+
+while True:
+    _,img = cap.read()
+    frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    faceCurFrame = face_recognition.face_locations(frame)
+    faceCurEndcode = face_recognition.face_encodings(frame,faceCurFrame)
+
+    for encodeFace, faceLoc in zip(faceCurEndcode,faceCurFrame):
+        matches = face_recognition.compare_faces(encodeListKnow,encodeFace)
+        faceDis = face_recognition.face_distance(encodeListKnow,encodeFace)
+        print(faceDis)
+        matchIndex = np.argmin(faceDis)
+
+        if matches[matchIndex]:
+            y1,x2,y2,x1 = faceLoc
+            cv2.rectangle(img, (x1,y1),(x2,y2),(0,255,0),2)
+            cv2.rectangle(img,(x1,y2-35),(x2,y2),(0,255,0),cv2.FILLED)
+            cv2.putText(img, text.upper(),(x1+6,y2-6),cv2.FONT_HERSHEY_COMPLEX,1,(0,0,255),2)
+            markAttendance(text)
+
+    cv2.imshow('webcam',img)
+    if cv2.waitKey(1) & 0xff == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+
+
